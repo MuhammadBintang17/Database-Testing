@@ -1,6 +1,7 @@
 package com.praktikum.database.testing.library.dao;
 
 // Import classes untuk database operations dan model
+// Pastikan import ini sesuai dengan struktur project Anda (kadang DatabaseConnection, kadang DatabaseConfig)
 import com.praktikum.database.testing.library.config.DatabaseConfig;
 import com.praktikum.database.testing.library.model.Borrowing;
 
@@ -23,27 +24,43 @@ public class BorrowingDAO {
      * @throws SQLException jika operasi database gagal
      */
     public Borrowing create(Borrowing borrowing) throws SQLException {
-        // SQL query untuk insert borrowing record
-        String sql = "INSERT INTO borrowings (user_id, book_id, due_date, status, notes) " +
-                "VALUES (?, ?, ?, ?, ?) " +
+        // PERBAIKAN: Menambahkan kolom 'borrow_date' ke dalam query INSERT
+        // Agar kita bisa memanipulasi tanggal peminjaman untuk testing (time travel)
+        String sql = "INSERT INTO borrowings (user_id, book_id, borrow_date, due_date, status, notes) " +
+                "VALUES (?, ?, ?, ?, ?, ?) " +
                 "RETURNING borrowing_id, borrow_date, created_at, updated_at";
 
+        // Periksa apakah class koneksi Anda bernama DatabaseConfig atau DatabaseConnection
+        // Sesuaikan di sini jika perlu.
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             // Set parameter values
             pstmt.setInt(1, borrowing.getUserId());
             pstmt.setInt(2, borrowing.getBookId());
-            pstmt.setTimestamp(3, borrowing.getDueDate());
+
+            // LOGIKA BARU: Handle Borrow Date
+            // Jika borrowDate sudah diset (misal dari Integration Test untuk simulasi masa lalu), gunakan itu.
+            // Jika null, gunakan waktu sekarang.
+            if (borrowing.getBorrowDate() != null) {
+                pstmt.setTimestamp(3, borrowing.getBorrowDate());
+            } else {
+                Timestamp now = new Timestamp(System.currentTimeMillis());
+                pstmt.setTimestamp(3, now);
+                borrowing.setBorrowDate(now); // Update object agar sinkron
+            }
+
+            pstmt.setTimestamp(4, borrowing.getDueDate());
 
             // Gunakan default value jika status null
-            pstmt.setString(4, borrowing.getStatus() != null ? borrowing.getStatus() : "borrowed");
-            pstmt.setString(5, borrowing.getNotes());
+            pstmt.setString(5, borrowing.getStatus() != null ? borrowing.getStatus() : "borrowed");
+            pstmt.setString(6, borrowing.getNotes());
 
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
                 // Set generated values
                 borrowing.setBorrowingId(rs.getInt("borrowing_id"));
+                // Pastikan timestamp yang dikembalikan DB diset ke object
                 borrowing.setBorrowDate(rs.getTimestamp("borrow_date"));
                 borrowing.setCreatedAt(rs.getTimestamp("created_at"));
                 borrowing.setUpdatedAt(rs.getTimestamp("updated_at"));
@@ -146,6 +163,7 @@ public class BorrowingDAO {
      * @throws SQLException jika operasi database gagal
      */
     public List<Borrowing> findOverdueBorrowings() throws SQLException {
+        // Query untuk mencari yang belum kembali (return_date NULL) DAN due_date < NOW()
         String sql = "SELECT * FROM borrowings WHERE return_date IS NULL AND due_date < CURRENT_TIMESTAMP " +
                 "ORDER BY due_date ASC";
         List<Borrowing> borrowings = new ArrayList<>();
@@ -215,7 +233,7 @@ public class BorrowingDAO {
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setDouble(1, fineAmount);
+            pstmt.setBigDecimal(1, java.math.BigDecimal.valueOf(fineAmount));
             pstmt.setInt(2, borrowingId);
 
             return pstmt.executeUpdate() > 0;
@@ -296,10 +314,24 @@ public class BorrowingDAO {
                 .returnDate(rs.getTimestamp("return_date"))
                 .status(rs.getString("status"))
                 .fineAmount(rs.getBigDecimal("fine_amount"))
-                .finePaid(rs.getBoolean("fine_paid"))
+                // Cek kolom fine_paid jika ada di tabel, jika tidak default false
+                // Gunakan try-catch jika skema tabel belum punya kolom ini, atau sesuaikan model
+                .finePaid(hasColumn(rs, "fine_paid") ? rs.getBoolean("fine_paid") : false)
                 .notes(rs.getString("notes"))
                 .createdAt(rs.getTimestamp("created_at"))
                 .updatedAt(rs.getTimestamp("updated_at"))
                 .build();
+    }
+
+    // Helper untuk mengecek keberadaan kolom di ResultSet (untuk kompatibilitas)
+    private boolean hasColumn(ResultSet rs, String columnName) throws SQLException {
+        ResultSetMetaData rsmd = rs.getMetaData();
+        int columns = rsmd.getColumnCount();
+        for (int x = 1; x <= columns; x++) {
+            if (columnName.equals(rsmd.getColumnName(x))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

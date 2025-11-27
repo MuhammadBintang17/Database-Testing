@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.praktikum.database.testing</groupId>
@@ -20,6 +21,7 @@
         <mockito.version>5.5.0</mockito.version>
         <faker.version>1.0.2</faker.version>
         <lombok.version>1.18.30</lombok.version>
+        <jacoco.version>0.8.12</jacoco.version>
     </properties>
 
     <dependencies>
@@ -45,7 +47,6 @@
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
             <version>${junit.platform.launcher}</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -125,8 +126,8 @@
                 <version>3.1.2</version>
                 <configuration>
                     <includes>
-                        <include>**/*Test.java</include>
-                        <include>**/*Tests.java</include>
+                        <include>/*Test.java</include>
+                        <include>/*Tests.java</include>
                     </includes>
                     <systemPropertyVariables>
                         <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %2$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
@@ -139,6 +140,27 @@
                 <artifactId>maven-surefire-report-plugin</artifactId>
                 <version>3.1.2</version>
             </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 </project>

@@ -62,6 +62,12 @@ public class BorrowingService {
     public Borrowing borrowBook(Integer userId, Integer bookId, int borrowDays) throws SQLException {
         logger.info("Memproses peminjaman buku - User: " + userId + ", Book: " + bookId);
 
+        // STEP 0: Validasi Input tidak boleh NULL (Perbaikan untuk TC412)
+        if (userId == null || bookId == null) {
+            logger.warning("User ID atau Book ID tidak boleh null");
+            throw new IllegalArgumentException("User ID dan Book ID tidak boleh null");
+        }
+
         // STEP 1: Validasi user exists dan active
         Optional<User> user = userDAO.findById(userId);
         if (user.isEmpty()) {
